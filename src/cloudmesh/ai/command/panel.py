@@ -11,7 +11,7 @@ import importlib.metadata
 from cloudmesh.ai.common.io import console
 from cloudmesh.ai.command.adapters import StoragePlugin, GitPlugin
 import importlib
-from cloudmesh.ai.monitor.terminalgui.core import HostManager
+from cloudmesh.ai.monitor.core import HostManager
 
 # Plugin Registry
 PLUGIN_REGISTRY = {
@@ -208,6 +208,31 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
                         self.wfile.write(b"Missing label parameter")
                         return
 
+                elif "update_host_active" in url.path:
+                    label = query.get("label", [None])[0]
+                    active_str = query.get("active", [None])[0]
+                    if label and active_str:
+                        try:
+                            # Convert "true"/"false" string to boolean
+                            active_bool = active_str.lower() == "true"
+                            if plugin and hasattr(plugin, "update_host_active"):
+                                result = plugin.update_host_active(label, active_bool)
+                                self.send_response(200)
+                                self.send_header("Content-type", "application/json")
+                                self.end_headers()
+                                self.wfile.write(json.dumps(result).encode("utf-8"))
+                                return
+                        except Exception as e:
+                            self.send_response(500)
+                            self.end_headers()
+                            self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                            return
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+                        self.wfile.write(b"Missing label or active parameter")
+                        return
+
                 elif "edit_hosts" in url.path:
                     print(f"[DEBUG] Received request to edit hosts: {url.path}")
                     try:
@@ -241,7 +266,7 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
                     label = query.get("label", [None])[0]
                     if label:
                         # We use HostManager to get the merged config and status for the host
-                        from cloudmesh.ai.monitor.terminalgui.core import HostManager
+                        from cloudmesh.ai.monitor.core import HostManager
                         hm = HostManager()
                         info = hm.get_host_info(label)
                         if info:
@@ -272,7 +297,7 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
 
                     if label and hostname:
                         try:
-                            from cloudmesh.ai.monitor.terminalgui.core import HostManager
+                            from cloudmesh.ai.monitor.core import HostManager
                             hm = HostManager()
                             hm.add_host(
                                 label=label,
@@ -311,7 +336,7 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
 
                     if label and hostname:
                         try:
-                            from cloudmesh.ai.monitor.terminalgui.core import HostManager
+                            from cloudmesh.ai.monitor.core import HostManager
                             hm = HostManager()
                             hm.add_host(
                                 label=label,
