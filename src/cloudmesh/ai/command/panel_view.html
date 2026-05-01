@@ -792,14 +792,13 @@
                             }
                             monitorTable = window.MonitorTableConfig.render("#dynamic-table", data);
                             if (monitorTable) {
-                                monitorTable.redraw();
-                                console.log("[DEBUG] monitorTable rendered and redrawn");
+                                console.log("[DEBUG] monitorTable rendered");
                             }
                         } else {
                             console.error("[DEBUG] MonitorTableConfig.render not found on window");
                         }
                     } catch (e) {
-                        console.error("[DEBUG] Monitor load process failed:", e);
+                        console.error("[DEBUG] Monitor load process failed:", e.message || e, e.stack);
                     }
                 };
 

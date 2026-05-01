@@ -6,17 +6,20 @@ import http.server
 import socketserver
 import threading
 import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 import click
 import importlib.metadata
 from cloudmesh.ai.common.io import console
 from cloudmesh.ai.command.adapters import StoragePlugin, GitPlugin
 import importlib
 from cloudmesh.ai.monitor.core import HostManager
+from cloudmesh.ai.command.monitor_plugin import MonitorPlugin
 
 # Plugin Registry
 PLUGIN_REGISTRY = {
     "storage": StoragePlugin(),
     "git": GitPlugin(),
+    "monitor": MonitorPlugin(),
 }
 
 
@@ -267,7 +270,7 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
                     if label:
                         # We use HostManager to get the merged config and status for the host
                         from cloudmesh.ai.monitor.core import HostManager
-                        hm = HostManager()
+                        hm = HostManager.get_instance()
                         info = hm.get_host_info(label)
                         if info:
                             self.send_response(200)
@@ -298,7 +301,7 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
                     if label and hostname:
                         try:
                             from cloudmesh.ai.monitor.core import HostManager
-                            hm = HostManager()
+                            hm = HostManager.get_instance()
                             hm.add_host(
                                 label=label,
                                 hostname=hostname,
@@ -337,7 +340,7 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
                     if label and hostname:
                         try:
                             from cloudmesh.ai.monitor.core import HostManager
-                            hm = HostManager()
+                            hm = HostManager.get_instance()
                             hm.add_host(
                                 label=label,
                                 hostname=hostname,
@@ -716,21 +719,26 @@ def view_cmd(plugin):
 
             def probe_loop():
                 print("[INFO] Background probing thread started.")
-                while not self.stop_background_probes.is_set():
-                    try:
-                        monitor_plugin = PLUGIN_REGISTRY.get("monitor")
-                        if monitor_plugin:
-                            hm = HostManager()
-                            for label, info in hm.get_hosts_ordered():
-                                if info.get("active", True):
-                                    # Trigger a refresh for each active host
-                                    monitor_plugin.refresh_host(label)
-                    except Exception as e:
-                        print(f"[ERROR] Background probe loop error: {e}")
+                # Use a ThreadPoolExecutor to probe hosts in parallel
+                with ThreadPoolExecutor(max_workers=10) as executor:
+                    while not self.stop_background_probes.is_set():
+                        try:
+                            monitor_plugin = PLUGIN_REGISTRY.get("monitor")
+                            if monitor_plugin:
+                                hm = HostManager.get_instance()
+                                active_hosts = [label for label, info in hm.get_hosts_ordered() if info.get("active", True)]
+                                
+                                # Submit all active hosts to the thread pool
+                                futures = [executor.submit(monitor_plugin.refresh_host, label) for label in active_hosts]
+                                
+                                # We don't necessarily need to wait for all to finish before starting the sleep,
+                                # but it's cleaner to ensure one cycle completes before the next.
+                                # However, to avoid blocking the loop too long, we can just let them run.
+                        except Exception as e:
+                            print(f"[ERROR] Background probe loop error: {e}")
 
-                    # Sleep for a default interval (e.g., 30s) or check config
-                    # We use a reasonable default to avoid hammering the hosts
-                    self.stop_background_probes.wait(timeout=30)
+                        # Sleep for a default interval (e.g., 30s) or check config
+                        self.stop_background_probes.wait(timeout=30)
                 print("[INFO] Background probing thread stopped.")
 
             thread = threading.Thread(target=probe_loop, daemon=True)
