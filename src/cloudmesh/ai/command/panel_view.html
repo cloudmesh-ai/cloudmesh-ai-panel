@@ -106,12 +106,29 @@
                                 {{ viewMode === 'registration' ? 'Manage and activate AI components for your panel' : 'View and analyze your active component data' }}
                             </p>
                         </div>
-                        <div v-if="currentAppId === 'git'" class="flex gap-2">
+                        <div v-if="currentAppId === 'git'" class="flex items-center gap-4">
                             <button @click="refreshGit" :disabled="loadingGit" 
                                     class="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-all">
                                 <i class="fa-solid fa-rotate" :class="{'fa-spin': loadingGit}"></i> Refresh
                             </button>
+                            <button @click="loadGit" :disabled="loadingGit" 
+                                    class="px-3 py-2 bg-orange-100 text-orange-700 border border-orange-300 rounded-lg text-xs font-bold hover:bg-orange-200 transition-all">
+                                Force Load
+                            </button>
+                            <div v-if="loadingGit" class="flex items-center gap-3 w-64">
+                                <div class="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                    <div class="h-full bg-primary transition-all duration-100" :style="{ width: gitProgressMax > 0 ? (gitProgressCurrent / gitProgressMax * 100) + '%' : '30%' }"></div>
+                                </div>
+                                <span class="text-xs font-mono text-gray-500 whitespace-nowrap">
+                                    {{ gitProgressMax === 0 ? 'Connecting...' : 'Loading ' + gitProgressCurrent + ' / ' + gitProgressMax }}
+                                </span>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Debug Log Area (Hidden by default, toggle with Ctrl+D) -->
+                    <div id="debug-log" class="hidden absolute bottom-0 left-0 right-0 h-48 bg-black text-green-400 p-2 font-mono text-xs overflow-y-auto z-50 opacity-90">
+                        <div>[System] Debug log initialized. Press Ctrl+D to toggle.</div>
                     </div>
 
                     <!-- Content Area -->
@@ -168,23 +185,23 @@
                             </div>
 
                             <!-- Storage View -->
-                            <div v-if="currentAppId === 'storage'" class="h-full flex flex-col overflow-hidden">
+                            <div v-show="currentAppId === 'storage'" class="h-full flex flex-col overflow-hidden">
                                 <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
                                     <span class="text-sm font-semibold text-gray-600">Storage Equivalencies</span>
                                     <span class="text-xs text-gray-400 font-mono">Root: {{ storageInfo.root }} | Target: {{ storageInfo.target }}</span>
                                 </div>
-                                <div class="flex-1 overflow-hidden">
+                                <div class="flex-1 w-full overflow-x-auto">
                                     <div id="storage-table" class="h-full min-h-[400px] w-full"></div>
                                 </div>
                             </div>
 
                             <!-- Git View -->
-                            <div v-if="currentAppId === 'git'" class="h-full flex flex-col overflow-hidden">
+                            <div v-show="currentAppId === 'git'" class="h-full flex flex-col overflow-hidden">
                                 <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
                                     <span class="text-sm font-semibold text-gray-600">Repository Statistics</span>
                                 </div>
-                                <div class="flex-1 overflow-hidden">
-                                    <div id="git-table" class="h-full"></div>
+                                <div class="flex-1 w-full overflow-x-auto">
+                                    <div id="git-table" class="h-full w-full"></div>
                                 </div>
                             </div>
                         </div>
@@ -195,6 +212,24 @@
     </div>
 
     <script>
+        // Global error handling to catch silent failures
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error("GLOBAL ERROR:", message, source, lineno, colno, error);
+            return false;
+        };
+        window.onunhandledrejection = function(event) {
+            console.error("UNHANDLED PROMISE REJECTION:", event.reason);
+        };
+
+        // Keyboard listener for debug log (Ctrl+D)
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'd') {
+                e.preventDefault();
+                const log = document.getElementById('debug-log');
+                if (log) log.classList.toggle('hidden');
+            }
+        });
+
         // Global handlers for Tabulator actions
         window.openFolder = (path) => {
             console.log("Opening folder:", path);
@@ -218,6 +253,8 @@
                 const currentAppName = ref('');
                 const searchQuery = ref('');
                 const loadingGit = ref(false);
+                const gitProgressCurrent = ref(0);
+                const gitProgressMax = ref(0);
                 const storageInfo = ref({ root: '...', target: '...' });
                 const viewMode = ref('dashboard'); // 'dashboard' or 'registration'
                 
@@ -265,63 +302,149 @@
                 };
 
                 const activateView = (app) => {
-                    viewMode.value = 'dashboard';
-                    currentAppId.value = app.id;
-                    currentAppName.value = app.name;
-                    searchQuery.value = '';
-                    
-                    if (app.id === 'git') loadGit();
-                    if (app.id === 'storage') loadStorage();
+                    try {
+                        console.log("[DEBUG] activateView triggered. App object:", app);
+                        if (!app || !app.id) {
+                            console.error("[DEBUG] CRITICAL: App object is missing an ID!");
+                            return;
+                        }
+                        
+                        const appId = String(app.id).trim().toLowerCase();
+                        console.log(`[DEBUG] Normalized appId: '${appId}' for app name: ${app.name}`);
+                        
+                        viewMode.value = 'dashboard';
+                        currentAppId.value = app.id;
+                        currentAppName.value = app.name;
+                        searchQuery.value = '';
+                        
+                        if (appId === 'git') {
+                            console.log("[DEBUG] Match found for 'git'. Calling loadGit()...");
+                            loadGit();
+                            if (gitTable) {
+                                setTimeout(() => {
+                                    console.log("[DEBUG] Redrawing gitTable after activation");
+                                    gitTable.redraw();
+                                    window.dispatchEvent(new Event('resize'));
+                                }, 200);
+                            }
+                        } else if (appId === 'storage') {
+                            console.log("[DEBUG] Match found for 'storage'. Calling loadStorage()...");
+                            loadStorage();
+                            if (storageTable) {
+                                setTimeout(() => {
+                                    console.log("[DEBUG] Redrawing storageTable after activation");
+                                    storageTable.redraw();
+                                    window.dispatchEvent(new Event('resize'));
+                                }, 200);
+                            }
+                        } else {
+                            console.log(`[DEBUG] No loader match for appId: '${appId}'`);
+                        }
+                    } catch (err) {
+                        console.error("[DEBUG] CRITICAL error in activateView:", err);
+                    }
                 };
 
                 // injectScript is no longer needed as scripts are loaded in head
                 const injectScript = async () => { return Promise.resolve(); };
 
+                const logDebug = (msg, data = '') => {
+                    console.log(`[DEBUG] ${msg}`, data);
+                    const logEl = document.getElementById('debug-log');
+                    if (logEl) {
+                        const entry = document.createElement('div');
+                        entry.textContent = `[${new Date().toLocaleTimeString()}] ${msg} ${data ? JSON.stringify(data) : ''}`;
+                        logEl.appendChild(entry);
+                        logEl.scrollTop = logEl.scrollHeight;
+                    }
+                };
+
                 const loadGit = async () => {
+                    logDebug("loadGit() called");
                     loadingGit.value = true;
+                    gitProgressCurrent.value = 0;
+                    gitProgressMax.value = 0;
+                    
                     try {
-                        const res = await fetch('/api/plugin/git');
-                        if (!res.ok) throw new Error(`Git data fetch failed: ${res.status}`);
-                        const data = await res.json();
+                        logDebug("Fetching /api/plugin/git with cache-buster...");
+                        const cacheBuster = `?t=${Date.now()}`;
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 10000);
+                        
+                        const res = await fetch('/api/plugin/git' + cacheBuster, { signal: controller.signal });
+                        clearTimeout(timeoutId);
+                        
+                        logDebug("Fetch response received:", res.status);
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        
+                        const rawData = await res.json();
+                        logDebug("JSON parsed successfully");
+                        const data = Array.isArray(rawData) ? rawData : (rawData && rawData.repos ? rawData.repos : []);
+                        
+                        gitProgressMax.value = data.length;
+                        gitProgressCurrent.value = data.length;
                         
                         await Vue.nextTick();
                         await new Promise(resolve => setTimeout(resolve, 100));
                         
-                        if (window.GitTableConfig && typeof window.GitTableConfig.render === 'function') {
+                        const el = document.querySelector("#git-table");
+                        if (el && window.GitTableConfig && typeof window.GitTableConfig.render === 'function') {
                             if (gitTable) gitTable.destroy();
                             gitTable = window.GitTableConfig.render("#git-table", data);
-                        } else {
-                            console.error("GitTableConfig not found on window");
+                            if (gitTable) gitTable.redraw();
+                            logDebug("Table rendered");
                         }
                     } catch (e) {
-                        console.error("Git load error:", e);
+                        logDebug("Git load error:", e.message || e);
                     } finally {
+                        logDebug("loadGit finally block");
                         loadingGit.value = false;
                     }
                 };
 
                 const loadStorage = async () => {
-                    console.log("Loading storage view...");
+                    console.log("[DEBUG] Starting Storage load process...");
                     try {
+                        console.log("[DEBUG] Fetching data from /api/plugin/storage...");
                         const res = await fetch('/api/plugin/storage');
                         if (!res.ok) throw new Error(`Storage data fetch failed: ${res.status}`);
                         const data = await res.json();
-                        console.log("Storage data received:", data);
+                        console.log("[DEBUG] Storage data received:", data);
                         storageInfo.value = data.info;
                         
                         await Vue.nextTick();
-                        await new Promise(resolve => setTimeout(resolve, 100));
+                        await new Promise(resolve => setTimeout(resolve, 150));
                         
+                        const el = document.querySelector("#storage-table");
+                        console.log("[DEBUG] Target element #storage-table:", el);
+                        if (!el) {
+                            console.error("[DEBUG] CRITICAL: Storage table element not found in DOM");
+                            return;
+                        }
+                        console.log("[DEBUG] Element dimensions:", el.offsetWidth, "x", el.offsetHeight);
+
                         if (window.StorageTableConfig && typeof window.StorageTableConfig.render === 'function') {
-                            console.log("Rendering storage table...");
-                            if (storageTable) storageTable.destroy();
-                            storageTable = window.StorageTableConfig.render("#storage-table", data.rows);
-                            console.log("Storage table rendered successfully");
+                            console.log("[DEBUG] Calling StorageTableConfig.render...");
+                            try {
+                                if (storageTable) {
+                                    console.log("[DEBUG] Destroying existing storageTable instance");
+                                    storageTable.destroy();
+                                }
+                                storageTable = window.StorageTableConfig.render("#storage-table", data.rows);
+                                console.log("[DEBUG] Tabulator instance created:", storageTable);
+                                if (storageTable) {
+                                    storageTable.redraw();
+                                    console.log("[DEBUG] storageTable.redraw() called");
+                                }
+                            } catch (renderError) {
+                                console.error("[DEBUG] CRITICAL: Error during Tabulator render call:", renderError);
+                            }
+                            console.log("[DEBUG] Storage table rendered successfully");
                         } else {
-                            console.error("StorageTableConfig.render not found on window");
+                            console.error("[DEBUG] CRITICAL: StorageTableConfig.render not found on window");
                         }
                     } catch (e) {
-                        console.error("Storage load error:", e);
+                        console.error("[DEBUG] Storage load process failed:", e);
                     }
                 };
 
@@ -347,7 +470,7 @@
 
                 return {
                     activeApps, availableComponents, currentAppId, currentAppName, 
-                    searchQuery, storageInfo, loadingGit, viewMode,
+                    searchQuery, storageInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode,
                     activateView, handleSearch, refreshGit, isAppActive, toggleApp
                 };
             }

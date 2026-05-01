@@ -77,16 +77,22 @@ class GitPlugin(PanelPlugin):
         return "Track and visualize statistics for your Git repositories across multiple users."
 
     def get_data(self) -> Any:
+        print(f"[DEBUG] GitPlugin.get_data() called")
         config = UserConfig()
         users = config.get_users()
+        print(f"[DEBUG] Configured users: {users}")
         
         if not users:
+            print("[DEBUG] No users configured, returning error")
             return {"error": "no_users_configured"}
 
         all_user_data = {}
         for user in users:
-            all_user_data[user] = fetch_all_repos_for_user(user, force=False, config=config)
+            print(f"[DEBUG] Reading cached repos for user: {user}")
+            # Use get_cached_repos directly to avoid any GitHub API calls (incremental enrichment)
+            all_user_data[user] = config.get_cached_repos(user) or []
         
+        print(f"[DEBUG] All cached data collected for users: {list(all_user_data.keys())}")
         flattened_data = []
         for user, repos in all_user_data.items():
             for repo in repos:
