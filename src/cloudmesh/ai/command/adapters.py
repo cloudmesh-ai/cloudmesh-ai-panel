@@ -2,6 +2,7 @@ from cloudmesh.ai.command.plugin import PanelPlugin
 from cloudmesh.ai.command.storage_view import StorageInfoView
 from cloudmesh.ai.command.git_view import GitInfoView
 from cloudmesh.ai.command.git import UserConfig, fetch_all_repos_for_user
+from cloudmesh.ai.monitor.terminalgui.core import HostManager
 from typing import Any
 
 class StoragePlugin(PanelPlugin):
@@ -113,3 +114,4 @@ class GitPlugin(PanelPlugin):
         config = UserConfig()
         success, message = config.clone_repo(repo_full_name)
         return {"success": success, "message": message}
+

@@ -9,12 +9,32 @@ import click
 import importlib.metadata
 from cloudmesh.ai.common.io import console
 from cloudmesh.ai.command.adapters import StoragePlugin, GitPlugin
+import importlib
 
 # Plugin Registry
 PLUGIN_REGISTRY = {
     "storage": StoragePlugin(),
     "git": GitPlugin(),
 }
+
+def discover_plugins():
+    """Dynamically discover and load plugins from entry points."""
+    global PLUGIN_REGISTRY
+    try:
+        eps = importlib.metadata.entry_points(group='cloudmesh.ai.plugin')
+        for ep in eps:
+            try:
+                plugin_class = ep.load()
+                plugin_instance = plugin_class()
+                PLUGIN_REGISTRY[plugin_instance.plugin_id] = plugin_instance
+                print(f"[INFO] Dynamically loaded plugin: {plugin_instance.plugin_id}")
+            except Exception as e:
+                print(f"[ERROR] Failed to load plugin {ep.name}: {e}")
+    except Exception as e:
+        print(f"[ERROR] Plugin discovery failed: {e}")
+
+# Initial discovery
+discover_plugins()
 
 class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
     """
@@ -37,11 +57,19 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(apps).encode("utf-8"))
             
         elif url.path.startswith("/api/plugin/"):
-            # Handle plugin actions (e.g., /api/plugin/git/download)
+            # Extract plugin_id from path: /api/plugin/{plugin_id}/...
             path_parts = url.path.split("/")
+            if len(path_parts) < 4:
+                self.send_response(400)
+                self.end_headers()
+                self.wfile.write(b"Invalid plugin path")
+                return
+            
+            plugin_id = path_parts[3]
+            plugin = PLUGIN_REGISTRY.get(plugin_id)
+
+            # Handle plugin actions (e.g., /api/plugin/git/download)
             if len(path_parts) >= 5 and path_parts[4] == "download":
-                plugin_id = path_parts[3]
-                plugin = PLUGIN_REGISTRY.get(plugin_id)
                 if plugin and hasattr(plugin, "download_repo"):
                     query = urllib.parse.parse_qs(url.query)
                     repo = query.get("repo", [None])[0]
@@ -62,10 +90,107 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(f"Download not supported for plugin {plugin_id}".encode("utf-8"))
                     return
+            
+            # Handle specific plugin actions
+            if plugin_id == "monitor":
+                query = urllib.parse.parse_qs(url.query)
+                
+                if "update_interval" in url.path:
+                    interval_str = query.get("interval", [None])[0]
+                    if interval_str:
+                        try:
+                            interval = int(interval_str)
+                            if plugin and hasattr(plugin, "update_interval"):
+                                result = plugin.update_interval(interval)
+                                self.send_response(200)
+                                self.send_header("Content-type", "application/json")
+                                self.end_headers()
+                                self.wfile.write(json.dumps(result).encode("utf-8"))
+                                return
+                        except ValueError:
+                            self.send_response(400)
+                            self.end_headers()
+                            self.wfile.write(b"Invalid interval value")
+                            return
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+                        self.wfile.write(b"Missing interval parameter")
+                        return
+
+                elif "update_host_interval" in url.path:
+                    label = query.get("label", [None])[0]
+                    interval_str = query.get("interval", [None])[0]
+                    if label and interval_str:
+                        try:
+                            interval = int(interval_str)
+                            if plugin and hasattr(plugin, "update_host_interval"):
+                                result = plugin.update_host_interval(label, interval)
+                                self.send_response(200)
+                                self.send_header("Content-type", "application/json")
+                                self.end_headers()
+                                self.wfile.write(json.dumps(result).encode("utf-8"))
+                                return
+                        except ValueError:
+                            self.send_response(400)
+                            self.end_headers()
+                            self.wfile.write(b"Invalid interval value")
+                            return
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+                        self.wfile.write(b"Missing label or interval parameter")
+                        return
+
+                elif "refresh_host" in url.path:
+                    label = query.get("label", [None])[0]
+                    if label:
+                        if plugin and hasattr(plugin, "refresh_host"):
+                            result = plugin.refresh_host(label)
+                            self.send_response(200)
+                            self.send_header("Content-type", "application/json")
+                            self.end_headers()
+                            self.wfile.write(json.dumps(result).encode("utf-8"))
+                            return
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+                        self.wfile.write(b"Missing label parameter")
+                        return
+
+                elif "get_terminal_cmd" in url.path:
+                    label = query.get("label", [None])[0]
+                    if label:
+                        if plugin and hasattr(plugin, "get_terminal_cmd"):
+                            result = plugin.get_terminal_cmd(label)
+                            self.send_response(200)
+                            self.send_header("Content-type", "application/json")
+                            self.end_headers()
+                            self.wfile.write(json.dumps(result).encode("utf-8"))
+                            return
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+                        self.wfile.write(b"Missing label parameter")
+                        return
+
+                elif "open_terminal" in url.path:
+                    label = query.get("label", [None])[0]
+                    if label:
+                        if plugin and hasattr(plugin, "open_terminal"):
+                            result = plugin.open_terminal(label)
+                            self.send_response(200)
+                            self.send_header("Content-type", "application/json")
+                            self.end_headers()
+                            self.wfile.write(json.dumps(result).encode("utf-8"))
+                            return
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+                        self.wfile.write(b"Missing label parameter")
+                        return
 
             # Default plugin data fetch
-            plugin_id = url.path.replace("/api/plugin/", "")
-            plugin = PLUGIN_REGISTRY.get(plugin_id)
             if plugin:
                 data = plugin.get_data()
                 self.send_response(200)
@@ -274,7 +399,8 @@ def panel_group():
     pass
 
 @panel_group.command(name="view")
-def view_cmd():
+@click.argument("plugin", required=False)
+def view_cmd(plugin):
     """
     View the AI Panel dashboard.
 
@@ -304,7 +430,8 @@ def view_cmd():
             return self.server.manager.load_apps()
 
     # To avoid the __init__ issue from before, we attach to the server object
-    class Server(socketserver.TCPServer):
+    # Use ThreadingTCPServer to prevent long-running probes from blocking the UI
+    class Server(socketserver.ThreadingTCPServer):
         def __init__(self, server_address, RequestHandlerClass):
             self.html_content = html_content
             self.manager = manager
@@ -317,6 +444,9 @@ def view_cmd():
             server_thread.start()
             
             url = f"http://localhost:{port}"
+            if plugin:
+                url += f"?plugin={urllib.parse.quote(plugin)}"
+            
             webbrowser.open(url)
             console.ok(f"AI Panel running at {url}")
             

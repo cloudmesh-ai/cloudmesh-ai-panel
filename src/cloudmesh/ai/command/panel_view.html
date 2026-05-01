@@ -10,9 +10,11 @@
     <link href="https://unpkg.com/tabulator-tables@5.5.0/dist/css/tabulator.min.css" rel="stylesheet">
     <link href="/api/configs/git_table_styles.css" rel="stylesheet">
     <link href="/api/configs/storage_table_styles.css" rel="stylesheet">
+    <link href="/api/configs/monitor_table_styles.css" rel="stylesheet">
     <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.0/dist/js/tabulator.min.js"></script>
     <script src="/api/configs/git_table_config.js"></script>
     <script src="/api/configs/storage_table_config.js"></script>
+    <script src="/api/configs/monitor_table_config.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script>
         tailwind.config = {
@@ -81,7 +83,7 @@
                         <div class="space-y-1">
                             <div :class="['flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm font-medium', 
                                           viewMode === 'registration' ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700']" 
-                                 @click="viewMode = 'registration'">
+                                 @click="openRegistration">
                                 <i class="fa-solid fa-plus-circle w-5 text-center" :class="viewMode === 'registration' ? 'text-primary dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'"></i>
                                 <span>Registration Panel</span>
                             </div>
@@ -284,6 +286,7 @@
             alert(`Metadata for ${path} has been downloaded.`);
         };
 
+
         const { createApp, ref, onMounted } = Vue;
 
         createApp({
@@ -302,6 +305,7 @@
                 
                 let gitTable = null;
                 let storageTable = null;
+                let monitorTable = null;
 
                 const fetchApps = async () => {
                     try {
@@ -319,6 +323,11 @@
                     } catch (e) {
                         console.error("Failed to fetch available components", e);
                     }
+                };
+
+                const openRegistration = async () => {
+                    viewMode.value = 'registration';
+                    await fetchAvailable();
                 };
 
                 const isAppActive = (id) => {
@@ -365,13 +374,20 @@
                         } else if (appId === 'storage') {
                             console.log("[DEBUG] Match found for 'storage'. Calling loadStorage()...");
                             loadStorage();
+                        } else if (appId === 'monitor') {
+                            console.log("[DEBUG] Match found for 'monitor'. Calling loadMonitor()...");
+                            loadMonitor();
                         } else {
                             console.log(`[DEBUG] No loader match for appId: '${appId}'`);
                         }
                         
                         // Common redraw logic for the dynamic table
                         setTimeout(() => {
-                            const currentTable = (appId === 'git') ? gitTable : storageTable;
+                            let currentTable = null;
+                            if (appId === 'git') currentTable = gitTable;
+                            else if (appId === 'storage') currentTable = storageTable;
+                            else if (appId === 'monitor') currentTable = monitorTable;
+
                             if (currentTable) {
                                 currentTable.redraw();
                                 window.dispatchEvent(new Event('resize'));
@@ -482,6 +498,38 @@
                     }
                 };
 
+                const loadMonitor = async () => {
+                    console.log("[DEBUG] Starting Monitor load process...");
+                    try {
+                        const res = await fetch('/api/plugin/monitor');
+                        if (!res.ok) throw new Error(`Monitor data fetch failed: ${res.status}`);
+                        const data = await res.json();
+                        console.log("[DEBUG] Monitor data received:", data);
+                        
+                        await Vue.nextTick();
+                        await new Promise(resolve => setTimeout(resolve, 150));
+                        
+                        const el = document.querySelector("#dynamic-table");
+                        if (!el) return;
+
+                        if (window.MonitorTableConfig && typeof window.MonitorTableConfig.render === 'function') {
+                            if (monitorTable) {
+                                console.log("[DEBUG] Destroying existing monitorTable instance");
+                                monitorTable.destroy();
+                            }
+                            monitorTable = window.MonitorTableConfig.render("#dynamic-table", data);
+                            if (monitorTable) {
+                                monitorTable.redraw();
+                                console.log("[DEBUG] monitorTable rendered and redrawn");
+                            }
+                        } else {
+                            console.error("[DEBUG] MonitorTableConfig.render not found on window");
+                        }
+                    } catch (e) {
+                        console.error("[DEBUG] Monitor load process failed:", e);
+                    }
+                };
+
                 const handleSearch = () => {
                     const query = searchQuery.value.toLowerCase();
                     if (currentAppId.value === 'git' && gitTable) {
@@ -516,12 +564,32 @@
                     }
                     await fetchApps();
                     await fetchAvailable();
+
+                    // Handle default plugin selection from query parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const defaultPluginId = urlParams.get('plugin');
+                    if (defaultPluginId) {
+                        const app = activeApps.value.find(a => a.id === defaultPluginId);
+                        if (app) {
+                            console.log(`[DEBUG] Auto-activating plugin from URL: ${defaultPluginId}`);
+                            activateView(app);
+                        } else {
+                            console.warn(`[DEBUG] Plugin ${defaultPluginId} requested via URL but not found in active apps`);
+                        }
+                    }
+            
+                    // Listen for interval updates from the monitor plugin to refresh the table
+                    window.addEventListener('monitor-interval-updated', () => {
+                        if (currentAppId.value === 'monitor') {
+                            loadMonitor();
+                        }
+                    });
                 });
 
                 return {
                     activeApps, availableComponents, currentAppId, currentAppName, 
                     searchQuery, pluginInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode, isDarkMode,
-                    activateView, handleSearch, refreshGit, isAppActive, toggleApp, toggleDarkMode
+                    activateView, handleSearch, refreshGit, isAppActive, toggleApp, toggleDarkMode, openRegistration
                 };
             }
         }).mount('#app');
