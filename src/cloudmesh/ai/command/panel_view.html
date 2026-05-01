@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-50">
+<html lang="en" class="h-full bg-gray-50 dark:bg-gray-900">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,6 +16,7 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
@@ -45,6 +46,9 @@
                            v-model="searchQuery" 
                            @input="handleSearch">
                 </div>
+                <button @click="toggleDarkMode" class="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center border border-white/30 hover:bg-white/30 transition-colors">
+                    <i :class="isDarkMode ? 'fa-solid fa-sun' : 'fa-solid fa-moon'" class="text-xs"></i>
+                </button>
                 <div class="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center border border-white/30">
                     <i class="fa-solid fa-user text-xs"></i>
                 </div>
@@ -54,14 +58,14 @@
         <!-- Main Layout -->
         <div class="flex flex-1 overflow-hidden">
             <!-- Sidebar / Navbar -->
-            <nav class="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
+            <nav class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col shrink-0">
                 <div class="flex-1 overflow-y-auto py-4">
                     <div class="px-4 mb-4">
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Active Apps</p>
+                        <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-2">Active Apps</p>
                         <div class="space-y-1">
                             <div v-for="app in activeApps" 
                                  :class="['flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm font-medium', 
-                                          currentAppId === app.id ? 'bg-blue-50 text-primary' : 'text-gray-600 hover:bg-gray-100']" 
+                                          currentAppId === app.id ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700']" 
                                  @click="activateView(app)">
                                 <i :class="[app.icon, currentAppId === app.id ? 'text-primary' : 'text-gray-400']" class="w-5 text-center"></i>
                                 <span>{{ app.name }}</span>
@@ -73,20 +77,20 @@
                     </div>
                     
                     <div class="px-4 mt-6">
-                        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 px-2">Administration</p>
+                        <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2 px-2">Administration</p>
                         <div class="space-y-1">
                             <div :class="['flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors text-sm font-medium', 
-                                          viewMode === 'registration' ? 'bg-blue-50 text-primary' : 'text-gray-600 hover:bg-gray-100']" 
+                                          viewMode === 'registration' ? 'bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700']" 
                                  @click="viewMode = 'registration'">
-                                <i class="fa-solid fa-plus-circle w-5 text-center" :class="viewMode === 'registration' ? 'text-primary' : 'text-gray-400'"></i>
+                                <i class="fa-solid fa-plus-circle w-5 text-center" :class="viewMode === 'registration' ? 'text-primary dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'"></i>
                                 <span>Registration Panel</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <div class="p-4 border-t border-gray-200">
-                    <div class="flex items-center gap-3 px-3 py-2 text-xs text-gray-500">
+                <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+                    <div class="flex items-center gap-3 px-3 py-2 text-xs text-gray-500 dark:text-gray-400">
                         <i class="fa-solid fa-circle text-[8px] text-green-500"></i>
                         System Online
                     </div>
@@ -94,15 +98,15 @@
             </nav>
 
             <!-- Main Panel -->
-            <main class="flex-1 overflow-hidden flex flex-col bg-gray-50">
+            <main class="flex-1 overflow-hidden flex flex-col bg-gray-50 dark:bg-gray-900">
                 <div class="p-6 h-full flex flex-col overflow-hidden">
                     <!-- Page Header -->
                     <div class="mb-6 flex items-center justify-between">
                         <div>
-                            <h2 class="text-2xl font-bold text-gray-800">
+                            <h2 class="text-2xl font-bold text-gray-800 dark:text-white">
                                 {{ viewMode === 'registration' ? 'Component Registration' : (currentAppName || 'Welcome') }}
                             </h2>
-                            <p class="text-sm text-gray-500">
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
                                 {{ viewMode === 'registration' ? 'Manage and activate AI components for your panel' : 'View and analyze your active component data' }}
                             </p>
                         </div>
@@ -132,28 +136,28 @@
                     </div>
 
                     <!-- Content Area -->
-                    <div class="flex-1 overflow-hidden bg-white border border-gray-200 rounded-xl shadow-sm relative">
+                    <div class="flex-1 overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm relative">
                         <!-- Registration View -->
                         <div v-if="viewMode === 'registration'" class="p-6 h-full overflow-y-auto">
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <div v-for="comp in availableComponents" :key="comp.id" 
-                                     class="group border border-gray-200 rounded-xl p-5 flex flex-col transition-all hover:border-primary hover:shadow-md bg-white">
+                                     class="group border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col transition-all hover:border-primary hover:shadow-md bg-white dark:bg-gray-800">
                                     <div class="flex items-start gap-4 mb-4">
-                                        <div class="w-12 h-12 rounded-lg bg-blue-50 text-primary flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-colors">
+                                        <div class="w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-primary dark:text-blue-400 flex items-center justify-center text-xl group-hover:bg-primary group-hover:text-white transition-colors">
                                             <i :class="comp.icon"></i>
                                         </div>
                                         <div class="flex-1 min-w-0">
                                             <div class="flex items-center gap-2">
-                                                <h3 class="font-bold text-gray-800 truncate">{{ comp.name }}</h3>
+                                                <h3 class="font-bold text-gray-800 dark:text-white truncate">{{ comp.name }}</h3>
                                                 <span v-if="isAppActive(comp.id)" class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold uppercase">Active</span>
                                             </div>
-                                            <p class="text-xs text-gray-400 font-mono truncate mb-1">{{ comp.id }}</p>
-                                            <p class="text-xs text-gray-500 line-clamp-2 leading-relaxed">{{ comp.description }}</p>
+                                            <p class="text-xs text-gray-400 dark:text-gray-500 font-mono truncate mb-1">{{ comp.id }}</p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">{{ comp.description }}</p>
                                         </div>
                                     </div>
                                     <div class="mt-auto pt-4 flex justify-end">
                                         <button v-if="isAppActive(comp.id)" 
-                                                class="px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-2" 
+                                                class="px-4 py-2 text-sm font-semibold text-red-600 border border-red-200 dark:border-red-900 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center gap-2" 
                                                 @click="toggleApp(comp, false)">
                                             <i class="fa-solid fa-trash-can"></i> Deactivate
                                         </button>
@@ -186,10 +190,10 @@
 
                             <!-- Dynamic Plugin View -->
                             <div v-if="currentAppId" class="h-full flex flex-col overflow-hidden">
-                                <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                                    <span class="text-sm font-semibold text-gray-600">{{ currentAppName }}</span>
+                                <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+                                    <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ currentAppName }}</span>
                                     <div v-if="pluginInfo" class="flex gap-3">
-                                        <span v-for="(val, key) in pluginInfo" class="text-xs text-gray-400 font-mono">
+                                        <span v-for="(val, key) in pluginInfo" class="text-xs text-gray-400 dark:text-gray-500 font-mono">
                                             {{ key }}: {{ val }}
                                         </span>
                                     </div>
@@ -237,6 +241,49 @@
             }
         };
 
+        window.downloadRepo = async (repo) => {
+            if (!confirm(`Do you want to download/update the repository: ${repo}?`)) return;
+            
+            try {
+                console.log(`[DEBUG] Requesting download for: ${repo}`);
+                const res = await fetch(`/api/plugin/git/download?repo=${encodeURIComponent(repo)}`);
+                const result = await res.json();
+                
+                if (result.success) {
+                    alert(`Success: ${result.message}`);
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (e) {
+                console.error("[DEBUG] Download request failed:", e);
+                alert(`Failed to connect to server: ${e.message}`);
+            }
+        };
+
+        window.downloadStorage = (path) => {
+            console.log(`[DEBUG] Downloading metadata for storage path: ${path}`);
+            
+            // Since we don't have a specific backend download for storage paths,
+            // we simulate a "Download Path Info" by exporting the path as a JSON file.
+            const metadata = {
+                path: path,
+                downloaded_at: new Date().toISOString(),
+                source: "Cloudmesh AI Panel Storage View"
+            };
+            
+            const blob = new Blob([JSON.stringify(metadata, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `storage_info_${Date.now()}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            alert(`Metadata for ${path} has been downloaded.`);
+        };
+
         const { createApp, ref, onMounted } = Vue;
 
         createApp({
@@ -250,6 +297,7 @@
                 const gitProgressCurrent = ref(0);
                 const gitProgressMax = ref(0);
                 const pluginInfo = ref({});
+                const isDarkMode = ref(localStorage.getItem('darkMode') === 'true');
                 const viewMode = ref('dashboard'); // 'dashboard' or 'registration'
                 
                 let gitTable = null;
@@ -445,19 +493,35 @@
                     }
                 };
 
+                const toggleDarkMode = () => {
+                    console.log("[DEBUG] toggleDarkMode called. Current state:", isDarkMode.value);
+                    isDarkMode.value = !isDarkMode.value;
+                    console.log("[DEBUG] New state:", isDarkMode.value);
+                    localStorage.setItem('darkMode', isDarkMode.value);
+                    if (isDarkMode.value) {
+                        document.documentElement.classList.add('dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                    }
+                    console.log("[DEBUG] HTML class list:", document.documentElement.classList.toString());
+                };
+
                 const refreshGit = async () => {
                     await loadGit();
                 };
 
                 onMounted(async () => {
+                    if (isDarkMode.value) {
+                        document.documentElement.classList.add('dark');
+                    }
                     await fetchApps();
                     await fetchAvailable();
                 });
 
                 return {
                     activeApps, availableComponents, currentAppId, currentAppName, 
-                    searchQuery, pluginInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode,
-                    activateView, handleSearch, refreshGit, isAppActive, toggleApp
+                    searchQuery, pluginInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode, isDarkMode,
+                    activateView, handleSearch, refreshGit, isAppActive, toggleApp, toggleDarkMode
                 };
             }
         }).mount('#app');

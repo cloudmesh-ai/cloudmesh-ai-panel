@@ -37,6 +37,33 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(apps).encode("utf-8"))
             
         elif url.path.startswith("/api/plugin/"):
+            # Handle plugin actions (e.g., /api/plugin/git/download)
+            path_parts = url.path.split("/")
+            if len(path_parts) >= 5 and path_parts[4] == "download":
+                plugin_id = path_parts[3]
+                plugin = PLUGIN_REGISTRY.get(plugin_id)
+                if plugin and hasattr(plugin, "download_repo"):
+                    query = urllib.parse.parse_qs(url.query)
+                    repo = query.get("repo", [None])[0]
+                    if repo:
+                        result = plugin.download_repo(repo)
+                        self.send_response(200)
+                        self.send_header("Content-type", "application/json")
+                        self.end_headers()
+                        self.wfile.write(json.dumps(result).encode("utf-8"))
+                        return
+                    else:
+                        self.send_response(400)
+                        self.end_headers()
+                        self.wfile.write(b"Missing repo parameter")
+                        return
+                else:
+                    self.send_response(404)
+                    self.end_headers()
+                    self.wfile.write(f"Download not supported for plugin {plugin_id}".encode("utf-8"))
+                    return
+
+            # Default plugin data fetch
             plugin_id = url.path.replace("/api/plugin/", "")
             plugin = PLUGIN_REGISTRY.get(plugin_id)
             if plugin:

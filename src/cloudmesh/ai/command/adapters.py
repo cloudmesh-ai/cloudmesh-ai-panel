@@ -107,3 +107,9 @@ class GitPlugin(PanelPlugin):
             "git_table_config.js": "cloudmesh-ai-git/src/cloudmesh/ai/command/git_table_config.js",
             "git_table_styles.css": "cloudmesh-ai-git/src/cloudmesh/ai/command/git_table_styles.css",
         }
+
+    def download_repo(self, repo_full_name: str):
+        """Clones the specified repository using the Git plugin's UserConfig."""
+        config = UserConfig()
+        success, message = config.clone_repo(repo_full_name)
+        return {"success": success, "message": message}
