@@ -184,24 +184,18 @@
                                 </button>
                             </div>
 
-                            <!-- Storage View -->
-                            <div v-show="currentAppId === 'storage'" class="h-full flex flex-col overflow-hidden">
+                            <!-- Dynamic Plugin View -->
+                            <div v-if="currentAppId" class="h-full flex flex-col overflow-hidden">
                                 <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-                                    <span class="text-sm font-semibold text-gray-600">Storage Equivalencies</span>
-                                    <span class="text-xs text-gray-400 font-mono">Root: {{ storageInfo.root }} | Target: {{ storageInfo.target }}</span>
+                                    <span class="text-sm font-semibold text-gray-600">{{ currentAppName }}</span>
+                                    <div v-if="pluginInfo" class="flex gap-3">
+                                        <span v-for="(val, key) in pluginInfo" class="text-xs text-gray-400 font-mono">
+                                            {{ key }}: {{ val }}
+                                        </span>
+                                    </div>
                                 </div>
                                 <div class="flex-1 w-full overflow-x-auto">
-                                    <div id="storage-table" class="h-full min-h-[400px] w-full"></div>
-                                </div>
-                            </div>
-
-                            <!-- Git View -->
-                            <div v-show="currentAppId === 'git'" class="h-full flex flex-col overflow-hidden">
-                                <div class="px-6 py-4 border-b border-gray-100 bg-gray-50/50">
-                                    <span class="text-sm font-semibold text-gray-600">Repository Statistics</span>
-                                </div>
-                                <div class="flex-1 w-full overflow-x-auto">
-                                    <div id="git-table" class="h-full w-full"></div>
+                                    <div id="dynamic-table" class="h-full w-full"></div>
                                 </div>
                             </div>
                         </div>
@@ -255,7 +249,7 @@
                 const loadingGit = ref(false);
                 const gitProgressCurrent = ref(0);
                 const gitProgressMax = ref(0);
-                const storageInfo = ref({ root: '...', target: '...' });
+                const pluginInfo = ref({});
                 const viewMode = ref('dashboard'); // 'dashboard' or 'registration'
                 
                 let gitTable = null;
@@ -320,33 +314,25 @@
                         if (appId === 'git') {
                             console.log("[DEBUG] Match found for 'git'. Calling loadGit()...");
                             loadGit();
-                            if (gitTable) {
-                                setTimeout(() => {
-                                    console.log("[DEBUG] Redrawing gitTable after activation");
-                                    gitTable.redraw();
-                                    window.dispatchEvent(new Event('resize'));
-                                }, 200);
-                            }
                         } else if (appId === 'storage') {
                             console.log("[DEBUG] Match found for 'storage'. Calling loadStorage()...");
                             loadStorage();
-                            if (storageTable) {
-                                setTimeout(() => {
-                                    console.log("[DEBUG] Redrawing storageTable after activation");
-                                    storageTable.redraw();
-                                    window.dispatchEvent(new Event('resize'));
-                                }, 200);
-                            }
                         } else {
                             console.log(`[DEBUG] No loader match for appId: '${appId}'`);
                         }
+                        
+                        // Common redraw logic for the dynamic table
+                        setTimeout(() => {
+                            const currentTable = (appId === 'git') ? gitTable : storageTable;
+                            if (currentTable) {
+                                currentTable.redraw();
+                                window.dispatchEvent(new Event('resize'));
+                            }
+                        }, 200);
                     } catch (err) {
                         console.error("[DEBUG] CRITICAL error in activateView:", err);
                     }
                 };
-
-                // injectScript is no longer needed as scripts are loaded in head
-                const injectScript = async () => { return Promise.resolve(); };
 
                 const logDebug = (msg, data = '') => {
                     console.log(`[DEBUG] ${msg}`, data);
@@ -387,10 +373,10 @@
                         await Vue.nextTick();
                         await new Promise(resolve => setTimeout(resolve, 100));
                         
-                        const el = document.querySelector("#git-table");
+                        const el = document.querySelector("#dynamic-table");
                         if (el && window.GitTableConfig && typeof window.GitTableConfig.render === 'function') {
                             if (gitTable) gitTable.destroy();
-                            gitTable = window.GitTableConfig.render("#git-table", data);
+                            gitTable = window.GitTableConfig.render("#dynamic-table", data);
                             if (gitTable) gitTable.redraw();
                             logDebug("Table rendered");
                         }
@@ -410,15 +396,15 @@
                         if (!res.ok) throw new Error(`Storage data fetch failed: ${res.status}`);
                         const data = await res.json();
                         console.log("[DEBUG] Storage data received:", data);
-                        storageInfo.value = data.info;
+                        pluginInfo.value = data.info || {};
                         
                         await Vue.nextTick();
                         await new Promise(resolve => setTimeout(resolve, 150));
                         
-                        const el = document.querySelector("#storage-table");
-                        console.log("[DEBUG] Target element #storage-table:", el);
+                        const el = document.querySelector("#dynamic-table");
+                        console.log("[DEBUG] Target element #dynamic-table:", el);
                         if (!el) {
-                            console.error("[DEBUG] CRITICAL: Storage table element not found in DOM");
+                            console.error("[DEBUG] CRITICAL: Dynamic table element not found in DOM");
                             return;
                         }
                         console.log("[DEBUG] Element dimensions:", el.offsetWidth, "x", el.offsetHeight);
@@ -430,7 +416,7 @@
                                     console.log("[DEBUG] Destroying existing storageTable instance");
                                     storageTable.destroy();
                                 }
-                                storageTable = window.StorageTableConfig.render("#storage-table", data.rows);
+                                storageTable = window.StorageTableConfig.render("#dynamic-table", data.rows);
                                 console.log("[DEBUG] Tabulator instance created:", storageTable);
                                 if (storageTable) {
                                     storageTable.redraw();
@@ -470,7 +456,7 @@
 
                 return {
                     activeApps, availableComponents, currentAppId, currentAppName, 
-                    searchQuery, storageInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode,
+                    searchQuery, pluginInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode,
                     activateView, handleSearch, refreshGit, isAppActive, toggleApp
                 };
             }
@@ -478,12 +464,3 @@
     </script>
 </body>
 </html>
-</write_to_file>
-<task_progress>
-- [x] Replace custom CSS with Tailwind CSS CDN
-- [x] Implement full-width Topbar with "Cloudmesh AI Panel"
-- [x] Create full-height layout with Left Navbar and Main Panel
-- [x] Implement Registration Panel as a navbar entry
-- [x] Style the Registration Panel and Dashboard views using Tailwind
-- [x] Verify existing Vue.js logic and table rendering are preserved
-</task_progress>
