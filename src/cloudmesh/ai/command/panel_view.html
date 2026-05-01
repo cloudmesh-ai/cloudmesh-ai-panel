@@ -130,6 +130,8 @@
                                 </span>
                             </div>
                         </div>
+                        <div v-if="currentAppId === 'monitor'" class="flex items-center gap-4">
+                        </div>
                     </div>
 
                     <!-- Debug Log Area (Hidden by default, toggle with Ctrl+D) -->
@@ -190,26 +192,254 @@
                                 </button>
                             </div>
 
-                            <!-- Dynamic Plugin View -->
-                            <div v-if="currentAppId" class="h-full flex flex-col overflow-hidden">
-                                <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
-                                    <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ currentAppName }}</span>
-                                    <div v-if="pluginInfo" class="flex gap-3">
-                                        <span v-for="(val, key) in pluginInfo" class="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                                            {{ key }}: {{ val }}
-                                        </span>
-                                    </div>
-                                </div>
-                                <div class="flex-1 w-full overflow-x-auto">
-                                    <div id="dynamic-table" class="h-full w-full"></div>
+                        <!-- Dynamic Plugin View -->
+                        <div v-if="currentAppId && viewMode === 'dashboard'" class="h-full flex flex-col overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
+                                <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ currentAppName }}</span>
+                                <div v-if="pluginInfo" class="flex gap-3">
+                                    <span v-for="(val, key) in pluginInfo" class="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                                        {{ key }}: {{ val }}
+                                    </span>
                                 </div>
                             </div>
+                            <div class="flex-1 w-full overflow-x-auto">
+                                <div id="dynamic-table" class="h-full w-full"></div>
+                            </div>
+                        </div>
+
+                        <!-- Host Detail View -->
+                        <div v-if="viewMode === 'detail' && hostDetail" class="h-full flex flex-col p-6 overflow-y-auto">
+                            <div class="flex items-center justify-between mb-6">
+                                <div class="flex items-center gap-4">
+                                    <button @click="closeDetail" class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-500 dark:text-gray-400">
+                                        <i class="fa-solid fa-arrow-left"></i> Back
+                                    </button>
+                                    <h3 class="text-2xl font-bold text-gray-800 dark:text-white">{{ selectedHost }}</h3>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button @click="window.MonitorTableConfig.openTerminal(selectedHost)" class="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center gap-2">
+                                        <i class="fa-solid fa-terminal"></i> Open Terminal
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <!-- Host Info Card -->
+                                <div class="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+                                    <h4 class="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Host Information</h4>
+                                    <div class="space-y-4">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-500 dark:text-gray-400">Hostname</span>
+                                            <span class="text-sm font-mono font-medium text-gray-800 dark:text-white">{{ hostDetail.hostname || 'N/A' }}</span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-500 dark:text-gray-400">Active</span>
+                                            <span :class="hostDetail.active ? 'text-green-500' : 'text-red-500'" class="text-sm font-bold">
+                                                {{ hostDetail.active ? 'Yes' : 'No' }}
+                                            </span>
+                                        </div>
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-sm text-gray-500 dark:text-gray-400">Refresh Interval</span>
+                                            <span class="text-sm font-medium text-gray-800 dark:text-white">{{ hostDetail.refresh_interval }}s</span>
+                                        </div>
+                                        <div class="pt-4 border-t border-gray-100 dark:border-gray-700">
+                                            <span class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase block mb-2">Logged In Users</span>
+                                            <div class="flex flex-wrap gap-2">
+                                                <span v-for="user in (hostDetail.who || 'None').split(',')" class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded text-xs font-mono">
+                                                    {{ user.trim() }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Resource Metrics Card -->
+                                <div class="lg:col-span-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+                                    <h4 class="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-6">Resource Utilization</h4>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                        <!-- GPU Usage -->
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-500 dark:text-gray-400">GPU Usage</span>
+                                                <span class="font-bold text-gray-800 dark:text-white">{{ hostDetail.gpu_usage || 'N/A' }}</span>
+                                            </div>
+                                            <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                <div class="h-full bg-primary transition-all duration-500" :style="{ width: hostDetail.gpu_usage ? hostDetail.gpu_usage + '%' : '0%' }"></div>
+                                            </div>
+                                        </div>
+                                        <!-- GPU Temp -->
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-500 dark:text-gray-400">GPU Temp</span>
+                                                <span class="font-bold text-gray-800 dark:text-white">{{ hostDetail.gpu_temp || 'N/A' }}</span>
+                                            </div>
+                                            <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                <div class="h-full bg-orange-500 transition-all duration-500" :style="{ width: (parseFloat(hostDetail.gpu_temp) || 0) > 80 ? '100%' : (parseFloat(hostDetail.gpu_temp) || 0) + '%' }"></div>
+                                            </div>
+                                        </div>
+                                        <!-- Mem Usage -->
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-500 dark:text-gray-400">Memory Usage</span>
+                                                <span class="font-bold text-gray-800 dark:text-white">{{ hostDetail.mem_usage || 'N/A' }}</span>
+                                            </div>
+                                            <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                <div class="h-full bg-blue-500 transition-all duration-500" :style="{ width: hostDetail.mem_usage ? hostDetail.mem_usage + '%' : '0%' }"></div>
+                                            </div>
+                                        </div>
+                                        <!-- CPU Usage -->
+                                        <div class="space-y-2">
+                                            <div class="flex justify-between text-sm mb-1">
+                                                <span class="text-gray-500 dark:text-gray-400">CPU Usage</span>
+                                                <span class="font-bold text-gray-800 dark:text-white">{{ hostDetail.cpu_usage || 'N/A' }}</span>
+                                            </div>
+                                            <div class="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                <div class="h-full bg-green-500 transition-all duration-500" :style="{ width: hostDetail.cpu_usage ? hostDetail.cpu_usage + '%' : '0%' }"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Probe Details -->
+                            <div class="mt-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
+                                <h4 class="text-sm font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">Last Probe Details</h4>
+                                <div class="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg font-mono text-xs text-gray-600 dark:text-gray-400 overflow-x-auto">
+                                    <div class="flex justify-between mb-2">
+                                        <span>Timestamp:</span>
+                                        <span class="text-gray-800 dark:text-white">{{ hostDetail.probe?.time || 'N/A' }}</span>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-4">
+                                        <div>GPU: {{ hostDetail.probe?.output?.gpu_usage }} / {{ hostDetail.probe?.output?.gpu_temp }}</div>
+                                        <div>CPU: {{ hostDetail.probe?.output?.cpu_usage }} / {{ hostDetail.probe?.output?.cpu_temp }}</div>
+                                        <div>MEM: {{ hostDetail.probe?.output?.mem_usage }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                         </div>
                     </div>
                 </div>
             </main>
         </div>
-    </div>
+
+        <!-- Edit Host Modal -->
+        <div v-if="showEditHostModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-200">
+                <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                    <h3 class="text-lg font-bold text-gray-800 dark:text-white">Edit Host: {{ editingHost.label }}</h3>
+                    <button @click="closeEditHostModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <form @submit.prevent="submitEditHost" class="p-6 space-y-4">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="opacity-60">
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Label (Read-only)</label>
+                            <input type="text" v-model="editingHost.label" disabled
+                                    class="w-full px-3 py-2 border rounded-lg text-sm outline-none bg-gray-100 dark:bg-gray-600 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Hostname *</label>
+                            <input type="text" v-model="editingHost.hostname" placeholder="e.g. 192.168.1.10" 
+                                    class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Interval (s)</label>
+                                <input type="number" v-model.number="editingHost.interval" 
+                                        class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                            </div>
+                            <div class="flex items-center gap-2 pt-6">
+                                <input type="checkbox" v-model="editingHost.active" id="edit-host-active" class="w-4 h-4 text-primary rounded focus:ring-primary">
+                                <label for="edit-host-active" class="text-sm font-medium text-gray-700 dark:text-gray-300">Active</label>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Probe Command</label>
+                            <select @change="handleProbeCommandSelect" 
+                                    class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white mb-2">
+                                <option value="">-- Select a Preset Command --</option>
+                                <option v-for="cmd in probeCommands" :key="cmd.cmd" :value="cmd.cmd">
+                                    {{ cmd.name }}
+                                </option>
+                            </select>
+                            <input type="text" v-model="editingHost.probe_cmd" placeholder="Custom shell command" 
+                                    class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" @click="closeEditHostModal" 
+                                class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 text-sm font-bold text-white bg-primary rounded-lg hover:bg-blue-700 transition-all shadow-sm">
+                            Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Add Host Modal -->
+        <div v-if="showAddHostModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-200 dark:border-gray-700 animate-in fade-in zoom-in duration-200">
+                <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50 dark:bg-gray-800/50">
+                    <h3 class="text-lg font-bold text-gray-800 dark:text-white">Add New Host</h3>
+                    <button @click="closeAddHostModal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+                </div>
+                <form @submit.prevent="submitAddHost" class="p-6 space-y-4">
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Label *</label>
+                            <input type="text" v-model="newHost.label" placeholder="e.g. GPU-Node-01" 
+                                   class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Hostname *</label>
+                            <input type="text" v-model="newHost.hostname" placeholder="e.g. 192.168.1.10" 
+                                   class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Interval (s)</label>
+                                <input type="number" v-model.number="newHost.interval" 
+                                       class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                            </div>
+                            <div class="flex items-center gap-2 pt-6">
+                                <input type="checkbox" v-model="newHost.active" id="host-active" class="w-4 h-4 text-primary rounded focus:ring-primary">
+                                <label for="host-active" class="text-sm font-medium text-gray-700 dark:text-gray-300">Active</label>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Probe Command</label>
+                            <select @change="handleProbeCommandSelect" 
+                                    class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white mb-2">
+                                <option value="">-- Select a Preset Command --</option>
+                                <option v-for="cmd in probeCommands" :key="cmd.cmd" :value="cmd.cmd">
+                                    {{ cmd.name }}
+                                </option>
+                            </select>
+                            <input type="text" v-model="newHost.probe_cmd" placeholder="Custom shell command" 
+                                   class="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-primary bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" @click="closeAddHostModal" 
+                                class="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 text-sm font-bold text-white bg-primary rounded-lg hover:bg-blue-700 transition-all shadow-sm">
+                            Add Host
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
     <script>
         // Global error handling to catch silent failures
@@ -297,6 +527,25 @@
                 const currentAppName = ref('');
                 const searchQuery = ref('');
                 const loadingGit = ref(false);
+                const selectedHost = ref(null);
+                const hostDetail = ref(null);
+                const showAddHostModal = ref(false);
+                const showEditHostModal = ref(false);
+                const editingHost = ref({
+                    label: '',
+                    hostname: '',
+                    active: true,
+                    interval: 10,
+                    probe_cmd: ''
+                });
+                const probeCommands = ref([]);
+                const newHost = ref({
+                    label: '',
+                    hostname: '',
+                    active: true,
+                    interval: 10,
+                    probe_cmd: ''
+                });
                 const gitProgressCurrent = ref(0);
                 const gitProgressMax = ref(0);
                 const pluginInfo = ref({});
@@ -425,7 +674,15 @@
                         clearTimeout(timeoutId);
                         
                         logDebug("Fetch response received:", res.status);
-                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        if (!res.ok) {
+                            const errorData = await res.json().catch(() => ({}));
+                            if (res.status === 404) {
+                                alert(`The Git component is not currently running or installed.\n${errorData.error || ''}`);
+                            } else {
+                                throw new Error(`HTTP ${res.status}`);
+                            }
+                            return;
+                        }
                         
                         const rawData = await res.json();
                         logDebug("JSON parsed successfully");
@@ -457,7 +714,15 @@
                     try {
                         console.log("[DEBUG] Fetching data from /api/plugin/storage...");
                         const res = await fetch('/api/plugin/storage');
-                        if (!res.ok) throw new Error(`Storage data fetch failed: ${res.status}`);
+                        if (!res.ok) {
+                            const errorData = await res.json().catch(() => ({}));
+                            if (res.status === 404) {
+                                alert(`The Storage component is not currently running or installed.\n${errorData.error || ''}`);
+                            } else {
+                                throw new Error(`Storage data fetch failed: ${res.status}`);
+                            }
+                            return;
+                        }
                         const data = await res.json();
                         console.log("[DEBUG] Storage data received:", data);
                         pluginInfo.value = data.info || {};
@@ -502,7 +767,15 @@
                     console.log("[DEBUG] Starting Monitor load process...");
                     try {
                         const res = await fetch('/api/plugin/monitor');
-                        if (!res.ok) throw new Error(`Monitor data fetch failed: ${res.status}`);
+                        if (!res.ok) {
+                            const errorData = await res.json().catch(() => ({}));
+                            if (res.status === 404) {
+                                alert(`The Monitor component is not currently running or installed.\n${errorData.error || ''}`);
+                            } else {
+                                throw new Error(`Monitor data fetch failed: ${res.status}`);
+                            }
+                            return;
+                        }
                         const data = await res.json();
                         console.log("[DEBUG] Monitor data received:", data);
                         
@@ -554,9 +827,66 @@
                     console.log("[DEBUG] HTML class list:", document.documentElement.classList.toString());
                 };
 
+                const showHostDetail = async (label) => {
+                    console.log(`[DEBUG] Showing detail for host: ${label}`);
+                    try {
+                        const res = await fetch(`/api/plugin/monitor/detail?label=${encodeURIComponent(label)}`);
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                        const result = await res.json();
+                        if (result.success) {
+                            selectedHost.value = label;
+                            hostDetail.value = result.data;
+                            viewMode.value = 'detail';
+                        } else {
+                            alert(`Error: ${result.error}`);
+                        }
+                    } catch (e) {
+                        console.error(`[DEBUG] Failed to load host detail for ${label}:`, e);
+                        alert(`Failed to load host details: ${e.message}`);
+                    }
+                };
+
+                const closeDetail = () => {
+                    viewMode.value = 'dashboard';
+                    selectedHost.value = null;
+                    hostDetail.value = null;
+                };
+
+                // Expose to window for Tabulator rowClick
+                window.showHostDetail = showHostDetail;
+
                 const refreshGit = async () => {
                     await loadGit();
                 };
+
+                let monitorPollingInterval = null;
+
+                const startMonitorPolling = () => {
+                    if (monitorPollingInterval) return;
+                    console.log("[DEBUG] Starting monitor polling...");
+                    monitorPollingInterval = setInterval(() => {
+                        if (currentAppId.value === 'monitor') {
+                            loadMonitor();
+                        }
+                    }, 10000); // Poll every 10 seconds
+                };
+
+                const stopMonitorPolling = () => {
+                    if (monitorPollingInterval) {
+                        console.log("[DEBUG] Stopping monitor polling...");
+                        clearInterval(monitorPollingInterval);
+                        monitorPollingInterval = null;
+                    }
+                };
+
+                // Watch for app changes to start/stop polling
+                Vue.watch(currentAppId, (newId) => {
+                    if (newId === 'monitor') {
+                        startMonitorPolling();
+                    } else {
+                        stopMonitorPolling();
+                    }
+                });
 
                 onMounted(async () => {
                     if (isDarkMode.value) {
@@ -584,12 +914,125 @@
                             loadMonitor();
                         }
                     });
+
+                    // Start polling if monitor is the default app
+                    if (currentAppId.value === 'monitor') {
+                        startMonitorPolling();
+                    }
                 });
+
+                const openAddHostModal = async () => {
+                    try {
+                        const res = await fetch('/api/plugin/monitor/probe_commands');
+                        if (res.ok) {
+                            probeCommands.value = await res.json();
+                        }
+                    } catch (e) {
+                        console.error("Failed to fetch probe commands:", e);
+                    }
+                    showAddHostModal.value = true;
+                };
+
+                const openEditHostModal = (hostData) => {
+                    console.log("[DEBUG] Opening Edit Host modal for:", hostData);
+                    editingHost.value = { ...hostData };
+                    showEditHostModal.value = true;
+                };
+
+                // Expose to window for Tabulator config
+                window.openAddHostModal = openAddHostModal;
+                window.openEditHostModal = openEditHostModal;
+
+                const handleProbeCommandSelect = (event) => {
+                    const cmd = event.target.value;
+                    newHost.value.probe_cmd = cmd;
+                };
+
+                const closeAddHostModal = () => {
+                    showAddHostModal.value = false;
+                    newHost.value = {
+                        label: '',
+                        hostname: '',
+                        active: true,
+                        interval: 10,
+                        probe_cmd: ''
+                    };
+                };
+
+                const closeEditHostModal = () => {
+                    showEditHostModal.value = false;
+                };
+
+                const submitAddHost = async () => {
+                    if (!newHost.value.label || !newHost.value.hostname) {
+                        alert("Label and Hostname are required.");
+                        return;
+                    }
+
+                    const params = new URLSearchParams({
+                        label: newHost.value.label,
+                        hostname: newHost.value.hostname,
+                        active: newHost.value.active,
+                        interval: newHost.value.interval,
+                        probe_cmd: newHost.value.probe_cmd
+                    });
+
+                    try {
+                        const res = await fetch(`/api/plugin/monitor/add_host?${params.toString()}`);
+                        const result = await res.json();
+                        if (result.success) {
+                            alert(`Success: ${result.message}`);
+                            closeAddHostModal();
+                            if (currentAppId.value === 'monitor') {
+                                loadMonitor();
+                            }
+                        } else {
+                            alert(`Error: ${result.error}`);
+                        }
+                    } catch (e) {
+                        console.error("Failed to add host:", e);
+                        alert(`Network error while adding host: ${e.message}`);
+                    }
+                };
+
+                const submitEditHost = async () => {
+                    if (!editingHost.value.label || !editingHost.value.hostname) {
+                        alert("Label and Hostname are required.");
+                        return;
+                    }
+
+                    const params = new URLSearchParams({
+                        label: editingHost.value.label,
+                        hostname: editingHost.value.hostname,
+                        active: editingHost.value.active,
+                        interval: editingHost.value.interval,
+                        probe_cmd: editingHost.value.probe_cmd
+                    });
+
+                    try {
+                        const res = await fetch(`/api/plugin/monitor/update_host?${params.toString()}`);
+                        const result = await res.json();
+                        if (result.success) {
+                            alert(`Success: ${result.message}`);
+                            closeEditHostModal();
+                            if (currentAppId.value === 'monitor') {
+                                loadMonitor();
+                            }
+                        } else {
+                            alert(`Error: ${result.error}`);
+                        }
+                    } catch (e) {
+                        console.error("Failed to update host:", e);
+                        alert(`Network error while updating host: ${e.message}`);
+                    }
+                };
 
                 return {
                     activeApps, availableComponents, currentAppId, currentAppName, 
                     searchQuery, pluginInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode, isDarkMode,
-                    activateView, handleSearch, refreshGit, isAppActive, toggleApp, toggleDarkMode, openRegistration
+                    selectedHost, hostDetail, showAddHostModal, showEditHostModal, editingHost, newHost, probeCommands,
+                    activateView, handleSearch, refreshGit, isAppActive, toggleApp, toggleDarkMode, openRegistration,
+                    showHostDetail, closeDetail, openAddHostModal, closeAddHostModal, openEditHostModal, closeEditHostModal, submitEditHost, submitAddHost, handleProbeCommandSelect
                 };
             }
         }).mount('#app');
