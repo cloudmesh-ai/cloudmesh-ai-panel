@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloudmesh-ai-panel"
+description = "Cloudmesh AI Panel - The central administration dashboard for the cloudmesh-ai organization"
+authors = [
+    {name = "Cloudmesh AI Organization", email = "support@cloudmesh.ai"}
+]
+license = "Apache-2.0"
+
+dynamic = ["version"]
+dependencies = [
+    "cloudmesh-ai-cmc",
+    "click",
+    "rich",
+    "pytest",
+    "cloudmesh-ai-common",
+]
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
+[project.entry-points."cloudmesh.ai.command"]
+panel = "command.panel:register"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["command*"]

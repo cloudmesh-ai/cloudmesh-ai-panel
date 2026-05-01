@@ -1,0 +1,10 @@
+expert js designer
+
+
+develop a js ap  that gats started in the local web browser
+
+It shoudl have a navigation bar on the left and a main panel on the right
+
+there are Feature Vuetify Prime VueQuasar Tailwind 
+
+whcih others to choose
