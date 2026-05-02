@@ -420,8 +420,33 @@ class PanelViewHandler(http.server.SimpleHTTPRequestHandler):
                     self.wfile.write(json.dumps({"logs": [l.strip() for l in logs]}).encode("utf-8"))
                     return
 
-            # Default plugin data fetch
+            # Dynamic method call for plugins
             if plugin:
+                # If there's a specific action requested (e.g., /api/plugin/multipass/launch_gui)
+                if len(path_parts) >= 5:
+                    action = path_parts[4]
+                    method = getattr(plugin, action, None)
+                    if callable(method):
+                        try:
+                            # Extract query parameters to pass as keyword arguments
+                            query_params = urllib.parse.parse_qs(url.query)
+                            # parse_qs returns lists for values, we take the first element
+                            kwargs = {k: v[0] for k, v in query_params.items()}
+                            
+                            result = method(**kwargs)
+                            self.send_response(200)
+                            self.send_header("Content-type", "application/json")
+                            self.end_headers()
+                            self.wfile.write(json.dumps(result).encode("utf-8"))
+                            return
+                        except Exception as e:
+                            self.send_response(500)
+                            self.send_header("Content-type", "application/json")
+                            self.end_headers()
+                            self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode("utf-8"))
+                            return
+
+                # Default fallback: fetch data
                 data = plugin.get_data()
                 self.send_response(200)
                 self.send_header("Content-type", "application/json")
