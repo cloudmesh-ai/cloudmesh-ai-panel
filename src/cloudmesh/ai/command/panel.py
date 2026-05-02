@@ -10,23 +10,17 @@ from concurrent.futures import ThreadPoolExecutor
 import click
 import importlib.metadata
 from cloudmesh.ai.common.io import console
-from cloudmesh.ai.command.adapters import StoragePlugin, GitPlugin
 import importlib
-from cloudmesh.ai.command.multipass_plugin import MultipassPlugin
-from cloudmesh.ai.command.monitor_plugin import MonitorPlugin
 
 # Plugin Registry
-PLUGIN_REGISTRY = {
-    "storage": StoragePlugin(),
-    "git": GitPlugin(),
-    "monitor": MonitorPlugin(),
-    "multipass": MultipassPlugin(),
-}
+PLUGIN_REGISTRY = {}
 
 
 def discover_plugins():
-    """Dynamically discover and load plugins from entry points."""
+    """Dynamically discover and load plugins from entry points and workspace YAMLs."""
     global PLUGIN_REGISTRY
+    
+    # 1. Discover via entry points
     try:
         eps = importlib.metadata.entry_points(group="cloudmesh.ai.plugin")
         for ep in eps:
@@ -34,11 +28,37 @@ def discover_plugins():
                 plugin_class = ep.load()
                 plugin_instance = plugin_class()
                 PLUGIN_REGISTRY[plugin_instance.plugin_id] = plugin_instance
-                print(f"[INFO] Dynamically loaded plugin: {plugin_instance.plugin_id}")
+                print(f"[INFO] Dynamically loaded plugin via entry point: {plugin_instance.plugin_id}")
             except Exception as e:
                 print(f"[ERROR] Failed to load plugin {ep.name}: {e}")
     except Exception as e:
-        print(f"[ERROR] Plugin discovery failed: {e}")
+        print(f"[ERROR] Entry point discovery failed: {e}")
+
+    # 2. Discover via workspace YAML files (Development fallback)
+    try:
+        import yaml
+        search_paths = [Path.cwd(), Path("/Users/grey/work")]
+        for root_dir in search_paths:
+            for pkg_dir in root_dir.glob("cloudmesh-ai-*/src/cloudmesh/ai/app/*.yaml"):
+                try:
+                    with open(pkg_dir, "r") as yaml_file:
+                        data = yaml.safe_load(yaml_file)
+                        app_list = data.get("cloudmesh", {}).get("ai", {}).get("app", [])
+                        if app_list and isinstance(app_list, list):
+                            app_info = app_list[0]
+                            plugin_path = app_info.get("plugin")
+                            if plugin_path:
+                                # Split 'module.path.ClassName' into 'module.path' and 'ClassName'
+                                module_path, class_name = plugin_path.rsplit(".", 1)
+                                module = importlib.import_module(module_path)
+                                plugin_class = getattr(module, class_name)
+                                plugin_instance = plugin_class()
+                                PLUGIN_REGISTRY[plugin_instance.plugin_id] = plugin_instance
+                                print(f"[INFO] Dynamically loaded plugin via YAML: {plugin_instance.plugin_id}")
+                except Exception as e:
+                    print(f"[ERROR] Failed to load plugin from {pkg_dir}: {e}")
+    except Exception as e:
+        print(f"[ERROR] YAML discovery failed: {e}")
 
 
 # Initial discovery
