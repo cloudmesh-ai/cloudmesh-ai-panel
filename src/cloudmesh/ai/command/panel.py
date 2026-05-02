@@ -12,7 +12,7 @@ import importlib.metadata
 from cloudmesh.ai.common.io import console
 from cloudmesh.ai.command.adapters import StoragePlugin, GitPlugin
 import importlib
-from cloudmesh.ai.monitor.core import HostManager
+from cloudmesh.ai.command.multipass_plugin import MultipassPlugin
 from cloudmesh.ai.command.monitor_plugin import MonitorPlugin
 
 # Plugin Registry
@@ -20,6 +20,7 @@ PLUGIN_REGISTRY = {
     "storage": StoragePlugin(),
     "git": GitPlugin(),
     "monitor": MonitorPlugin(),
+    "multipass": MultipassPlugin(),
 }
 
 

@@ -15,6 +15,7 @@
     <script src="/api/configs/git_table_config.js"></script>
     <script src="/api/configs/storage_table_config.js"></script>
     <script src="/api/configs/monitor_table_config.js"></script>
+    <script src="/api/configs/multipass_table_config.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script>
         tailwind.config = {
@@ -196,11 +197,20 @@
                         <div v-if="currentAppId && viewMode === 'dashboard'" class="h-full flex flex-col overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center bg-gray-50/50 dark:bg-gray-800/50">
                                 <span class="text-sm font-semibold text-gray-600 dark:text-gray-300">{{ currentAppName }}</span>
-                                <div v-if="pluginInfo" class="flex gap-3">
-                                    <span v-for="(val, key) in pluginInfo" class="text-xs text-gray-400 dark:text-gray-500 font-mono">
-                                        {{ key }}: {{ val }}
-                                    </span>
-                                </div>
+                                 <div class="flex items-center gap-4">
+                                     <div v-if="pluginActions" class="flex gap-2">
+                                         <button v-for="action in pluginActions" 
+                                                 @click="executePluginAction(action)"
+                                                 class="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all shadow-sm">
+                                             <i :class="action.icon" class="text-gray-400"></i> {{ action.label }}
+                                         </button>
+                                     </div>
+                                     <div v-if="pluginInfo" class="flex gap-3 ml-auto">
+                                         <span v-for="(val, key) in pluginInfo" class="text-xs text-gray-400 dark:text-gray-500 font-mono">
+                                             {{ key }}: {{ val }}
+                                         </span>
+                                     </div>
+                                 </div>
                             </div>
                             <div class="flex-1 w-full overflow-x-auto">
                                 <div id="dynamic-table" class="h-full w-full"></div>
@@ -523,8 +533,9 @@
             setup() {
                 const activeApps = ref([]);
                 const availableComponents = ref([]);
-                const currentAppId = ref(null);
-                const currentAppName = ref('');
+                        const currentAppId = ref(null);
+                        const currentAppName = ref('');
+                        const pluginActions = ref([]);
                 const searchQuery = ref('');
                 const loadingGit = ref(false);
                 const selectedHost = ref(null);
@@ -555,6 +566,7 @@
                 let gitTable = null;
                 let storageTable = null;
                 let monitorTable = null;
+                let multipassTable = null;
 
                 const fetchApps = async () => {
                     try {
@@ -616,7 +628,14 @@
                         currentAppId.value = app.id;
                         currentAppName.value = app.name;
                         searchQuery.value = '';
+                        pluginActions.value = [];
                         
+                        // Load plugin actions from the global config object if it exists
+                        const configName = appId.charAt(0).toUpperCase() + appId.slice(1) + 'TableConfig';
+                        if (window[configName] && window[configName].actions) {
+                            pluginActions.value = window[configName].actions;
+                        }
+
                         if (appId === 'git') {
                             console.log("[DEBUG] Match found for 'git'. Calling loadGit()...");
                             loadGit();
@@ -626,6 +645,9 @@
                         } else if (appId === 'monitor') {
                             console.log("[DEBUG] Match found for 'monitor'. Calling loadMonitor()...");
                             loadMonitor();
+                        } else if (appId === 'multipass') {
+                            console.log("[DEBUG] Match found for 'multipass'. Calling loadMultipass()...");
+                            loadMultipass();
                         } else {
                             console.log(`[DEBUG] No loader match for appId: '${appId}'`);
                         }
@@ -636,6 +658,7 @@
                             if (appId === 'git') currentTable = gitTable;
                             else if (appId === 'storage') currentTable = storageTable;
                             else if (appId === 'monitor') currentTable = monitorTable;
+                            else if (appId === 'multipass') currentTable = multipassTable;
 
                             if (currentTable) {
                                 currentTable.redraw();
@@ -760,6 +783,52 @@
                         }
                     } catch (e) {
                         console.error("[DEBUG] Storage load process failed:", e);
+                    }
+                };
+
+                const executePluginAction = async (action) => {
+                    try {
+                        console.log(`[DEBUG] Executing plugin action: ${action.label}`);
+                        // The action.callback is defined in the JS config file
+                        await action.callback();
+                    } catch (e) {
+                        console.error(`[DEBUG] Action ${action.label} failed:`, e);
+                        alert(`Action failed: ${e.message}`);
+                    }
+                };
+
+                const loadMultipass = async () => {
+                    console.log("[DEBUG] Starting Multipass load process...");
+                    try {
+                        const res = await fetch('/api/plugin/multipass');
+                        if (!res.ok) {
+                            const errorData = await res.json().catch(() => ({}));
+                            if (res.status === 404) {
+                                alert(`The Multipass component is not currently running or installed.\n${errorData.error || ''}`);
+                            } else {
+                                throw new Error(`Multipass data fetch failed: ${res.status}`);
+                            }
+                            return;
+                        }
+                        const data = await res.json();
+                        console.log("[DEBUG] Multipass data received:", data);
+                        
+                        await Vue.nextTick();
+                        await new Promise(resolve => setTimeout(resolve, 150));
+                        
+                        const el = document.querySelector("#dynamic-table");
+                        if (!el) return;
+                        
+                        if (window.MultipassTableConfig && typeof window.MultipassTableConfig.render === 'function') {
+                            if (multipassTable) {
+                                multipassTable.destroy();
+                            }
+                            multipassTable = window.MultipassTableConfig.render("#dynamic-table", data);
+                        } else {
+                            console.error("[DEBUG] MultipassTableConfig.render not found on window");
+                        }
+                    } catch (e) {
+                        console.error("[DEBUG] Multipass load process failed:", e);
                     }
                 };
 
@@ -1031,7 +1100,8 @@
                     searchQuery, pluginInfo, loadingGit, gitProgressCurrent, gitProgressMax, viewMode, isDarkMode,
                     selectedHost, hostDetail, showAddHostModal, showEditHostModal, editingHost, newHost, probeCommands,
                     activateView, handleSearch, refreshGit, isAppActive, toggleApp, toggleDarkMode, openRegistration,
-                    showHostDetail, closeDetail, openAddHostModal, closeAddHostModal, openEditHostModal, closeEditHostModal, submitEditHost, submitAddHost, handleProbeCommandSelect
+                    showHostDetail, closeDetail, openAddHostModal, closeAddHostModal, openEditHostModal, closeEditHostModal, submitEditHost, submitAddHost, handleProbeCommandSelect,
+                    executePluginAction, pluginActions
                 };
             }
         }).mount('#app');
