@@ -8,7 +8,16 @@ description = "Cloudmesh AI Panel - The central administration dashboard for the
 authors = [
     {name = "Cloudmesh AI Organization", email = "support@cloudmesh.ai"}
 ]
-license = {text = "Apache-2.0"}
+license = "Apache-2.0"
+urls = { "Homepage" = "https://github.com/cloudmesh-ai/cloudmesh-ai-panel" }
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+]
 
 dynamic = ["version"]
 dependencies = [

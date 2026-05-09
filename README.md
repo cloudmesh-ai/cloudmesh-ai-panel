@@ -42,3 +42,7 @@ cmc panel reset
 - **Frontend**: HTML5, Tailwind CSS, Vue.js 3, Tabulator.js.
 - **Backend**: Python `http.server` serving a dynamic HTML template and JSON APIs.
 - **Configuration**: Active applications are stored in `~/.config/cloudmesh/panel/apps.json`.
+## Core Dependencies
+This project depends on the following core components of the Cloudmesh AI ecosystem:
+- [cloudmesh-ai-common](https://github.com/cloudmesh-ai/cloudmesh-ai-common)
+- [cloudmesh-ai-cmc](https://github.com/cloudmesh-ai/cloudmesh-ai-cmc)

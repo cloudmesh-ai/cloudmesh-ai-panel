@@ -42,6 +42,7 @@ requirements:
 
 test:
 	$(PYTHON) -m pytest -v tests/
+	for d in ../cloudmesh-ai-*; do echo "--- \$$d ---"; git -C \$$d status -s; done
 
 test-html:
 	$(PYTHON) -m pytest -v --html=.report.html tests/
