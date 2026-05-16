@@ -11,6 +11,7 @@ nav:
   - Issues: https://github.com/cloudmesh-ai/cloudmesh-ai-panel/issues
 - API Reference: api.md
 plugins:
+- cloudmesh-ai-theme
 - search
 - mkdocstrings:
     handlers:
@@ -29,7 +30,5 @@ plugins:
         - src
 site_name: Cloudmesh AI Panel
 theme:
-  favicon: assets/favicon.ico
-  logo: assets/logo-white.png
   name: material
 use_directory_urls: false
