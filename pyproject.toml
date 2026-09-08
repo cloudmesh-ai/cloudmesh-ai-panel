@@ -5,6 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "cloudmesh-ai-panel"
 description = "Cloudmesh AI Panel - The central administration dashboard for the cloudmesh-ai organization"
+requires-python = ">=3.12"
 authors = [
     {name = "Cloudmesh AI Organization", email = "support@cloudmesh.ai"}
 ]
@@ -25,8 +26,6 @@ dependencies = [
     "click",
     "rich",
     "pytest",
-    "cloudmesh-ai-common",
-    "cloudmesh-ai-theme",
 ]
 [tool.setuptools.dynamic]
 version = {file = "VERSION"}

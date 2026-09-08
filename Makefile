@@ -12,7 +12,7 @@ VERSION_FILE := VERSION
 GIT          := git
 PYENVVERSION := $(shell pyenv version-name)
 
-.PHONY: help install clean build test reinstall \ doc view check tag release test-html test-cov setup-test uninstall-all tmp-setup
+.PHONY: help install clean build test reinstall \ doc view check tag release test-html test-cov setup-test uninstall-all tmp-setup publish
 
 help:
 	@echo
@@ -29,6 +29,7 @@ help:
 	@echo "  tag           - Create a git tag based on current version and push"
 	@echo "  release       - Full Production Cycle: upload + tag"
 	@echo
+	@echo "  publish       - Deploy documentation to GitHub Pages"
 
 # --- DEVELOPMENT & TESTING ---
 
@@ -93,7 +94,7 @@ reinstall: uninstall-all clean
 
 publish:
 	@echo "Deploying MkDocs site to GitHub Pages..."
-	./publish.sh
+	mkdocs gh-deploy --version $$(cat VERSION)
 # --- DOCUMENTATION ---
 
 doc:
